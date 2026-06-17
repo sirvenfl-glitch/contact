@@ -17,7 +17,7 @@
 
 <style>
 :root {
-  --bg: #0D0D0D;
+  --bg: #030407;
   --bg-elev: rgba(255, 255, 255, 0.04);
   --bg-elev-hover: rgba(255, 255, 255, 0.07);
   --border: rgba(255, 255, 255, 0.08);
@@ -53,14 +53,24 @@ body {
   font-feature-settings: "ss01", "ss02";
 }
 
+/* Ambient glow — identique à flaynn.io (.ambient) */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 15% 8%, var(--violet-glow), transparent 60%),
-    radial-gradient(ellipse 55% 40% at 85% 85%, var(--flame-glow), transparent 60%);
-  opacity: 0.55;
+    radial-gradient(ellipse 70% 40% at 20% 0%, rgba(123,45,142,0.13), transparent 60%),
+    radial-gradient(ellipse 50% 30% at 90% 20%, rgba(232,101,26,0.09), transparent 55%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Starfield canvas — signature Flaynn */
+#canvas-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   pointer-events: none;
 }
@@ -566,6 +576,8 @@ body::after {
 </head>
 <body>
 
+<canvas id="canvas-bg"></canvas>
+
 <main class="container">
 
   <header class="hero">
@@ -900,6 +912,106 @@ body::after {
       });
     });
   }
+})();
+</script>
+
+<script>
+/* Starfield canvas — signature Flaynn (depuis flaynn.io/js/ds/starfield.js).
+   70 particules, 5 couleurs, liens sous 140px, parallaxe souris, warp au clic. */
+(function () {
+  const cv = document.getElementById('canvas-bg');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  let W, H, DPR;
+  const COLORS = ['#7B2D8E', '#a85ec0', '#E8651A', '#EC4899', '#FACC15'];
+  const N = 70;
+  const stars = [];
+  let mx = -9999, my = -9999;
+  let warp = null;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth = window.innerWidth;
+    H = cv.clientHeight = window.innerHeight;
+    cv.width = W * DPR;
+    cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  function init() {
+    stars.length = 0;
+    for (let i = 0; i < N; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 0.6 + Math.random() * 1.4,
+        vx: (Math.random() - 0.5) * 0.12,
+        vy: (Math.random() - 0.5) * 0.12,
+        c: COLORS[Math.floor(Math.random() * COLORS.length)],
+        a: 0.35 + Math.random() * 0.45,
+      });
+    }
+  }
+  function step() {
+    ctx.clearRect(0, 0, W, H);
+    for (const s of stars) {
+      const dx = s.x - mx, dy = s.y - my;
+      const d = Math.hypot(dx, dy);
+      if (d < 200) {
+        s.x += (dx / d) * 0.15;
+        s.y += (dy / d) * 0.15;
+      }
+      if (warp) {
+        const wdx = s.x - warp.x, wdy = s.y - warp.y;
+        const wd = Math.hypot(wdx, wdy);
+        const force = Math.max(0, (warp.r - wd) / warp.r) * 4;
+        if (wd > 0) {
+          s.x += (wdx / wd) * force;
+          s.y += (wdy / wd) * force;
+        }
+      }
+      s.x += s.vx; s.y += s.vy;
+      if (s.x < -5) s.x = W + 5; if (s.x > W + 5) s.x = -5;
+      if (s.y < -5) s.y = H + 5; if (s.y > H + 5) s.y = -5;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = s.c;
+      ctx.globalAlpha = s.a;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < stars.length; i++) {
+      for (let j = i + 1; j < stars.length; j++) {
+        const a = stars[i], b = stars[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 140) {
+          ctx.strokeStyle = a.c;
+          ctx.globalAlpha = (1 - d / 140) * 0.18;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (warp) {
+      warp.r += 12;
+      warp.t -= 1;
+      if (warp.t <= 0) warp = null;
+    }
+    requestAnimationFrame(step);
+  }
+
+  window.addEventListener('resize', () => { resize(); init(); });
+  window.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
+  window.addEventListener('mouseleave', () => { mx = my = -9999; });
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.card, .share-fab, .modal-btn');
+    if (t) warp = { x: e.clientX, y: e.clientY, t: 60, r: 60 };
+  });
+  resize(); init(); step();
 })();
 </script>
 
